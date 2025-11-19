@@ -1,0 +1,165 @@
+================================================================================
+  COMO RODAR O PROJETO PELA PRIMEIRA VEZ
+  Sistema de Reserva de Salas - Frontend + Backend
+================================================================================
+
+PRÉ-REQUISITOS:
+- Python 3.9 ou superior
+- Node.js 18 ou superior
+- Docker (opcional, mas recomendado para PostgreSQL)
+- Git (opcional)
+
+================================================================================
+PASSO 1: BACKEND (Python/FastAPI)
+================================================================================
+
+1. Abra um terminal WSL e navegue até a pasta do backend:
+   cd /mnt/c/Users/ciebi/OneDrive/Documentos/teste/backend
+
+2. Crie um ambiente virtual:
+   python3 -m venv venv
+
+3. Ative o ambiente virtual:
+   source venv/bin/activate
+   (Você verá (venv) no início do prompt)
+
+4. Instale as dependências:
+   pip install --upgrade pip
+   pip install -r requirements.txt
+
+5. Crie o arquivo .env:
+   cat > .env << 'EOF'
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/reservas_db
+   SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
+   ALGORITHM=HS256
+   ACCESS_TOKEN_EXPIRE_MINUTES=30
+   EOF
+
+6. Inicie o PostgreSQL com Docker:
+   docker-compose up -d db
+
+7. Aguarde alguns segundos para o banco inicializar:
+   sleep 5
+
+8. Inicie o servidor backend:
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+9. Verifique se está funcionando:
+   - Acesse: http://localhost:8000/api/docs
+   - Você deve ver a documentação da API
+
+MANTENHA ESTE TERMINAL ABERTO!
+
+================================================================================
+PASSO 2: FRONTEND (React/TypeScript)
+================================================================================
+
+1. Abra um NOVO terminal WSL e navegue até a pasta do frontend:
+   cd /mnt/c/Users/ciebi/OneDrive/Documentos/teste/frontend
+
+2. Instale as dependências:
+   npm install
+   (ou: yarn install / pnpm install)
+
+3. Inicie o servidor de desenvolvimento:
+   npm run dev
+   (ou: yarn dev / pnpm dev)
+
+4. Verifique se está funcionando:
+   - Acesse: http://localhost:3000
+   - Você será redirecionado para a tela de login
+
+MANTENHA ESTE TERMINAL ABERTO TAMBÉM!
+
+================================================================================
+PASSO 3: PRIMEIRO USO
+================================================================================
+
+1. Acesse: http://localhost:3000
+
+2. Você será redirecionado para a tela de login
+
+3. Clique em "Não tem uma conta? Registre-se"
+
+4. Preencha:
+   - Nome: Seu nome
+   - Email: seu@email.com
+   - Senha: (mínimo 6 caracteres)
+
+5. Após registrar, você será redirecionado para a tela de reservas
+
+6. Crie uma sala primeiro:
+   - Vá em "Salas"
+   - Clique em "Nova Sala"
+   - Preencha os dados
+
+7. Depois crie uma reserva:
+   - Vá em "Reservas"
+   - Clique em "Nova Reserva"
+   - Preencha os dados
+
+================================================================================
+COMANDOS RÁPIDOS (RESUMO)
+================================================================================
+
+BACKEND:
+  cd backend
+  source venv/bin/activate
+  docker-compose up -d db
+  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+FRONTEND:
+  cd frontend
+  npm install
+  npm run dev
+
+================================================================================
+VERIFICAÇÃO RÁPIDA
+================================================================================
+
+Backend rodando:
+  - http://localhost:8000/api/docs (documentação)
+  - http://localhost:8000/api/health (health check)
+
+Frontend rodando:
+  - http://localhost:3000 (aplicação)
+
+================================================================================
+PROBLEMAS COMUNS
+================================================================================
+
+1. Erro "externally-managed-environment":
+   → Sempre use ambiente virtual: python3 -m venv venv
+
+2. Erro "ECONNREFUSED 127.0.0.1:8000":
+   → Backend não está rodando. Inicie o backend primeiro!
+
+3. Erro "ModuleNotFoundError":
+   → Instale as dependências: pip install -r requirements.txt
+
+4. Erro no npm:
+   → Reinstale: rm -rf node_modules && npm install
+
+5. PostgreSQL não conecta:
+   → Verifique se Docker está rodando: docker-compose ps
+
+================================================================================
+IMPORTANTE
+================================================================================
+
+- Backend DEVE estar rodando antes do frontend
+- Mantenha AMBOS os terminais abertos
+- Backend na porta 8000
+- Frontend na porta 3000
+- PostgreSQL na porta 5432 (Docker)
+
+================================================================================
+ORDEM DE EXECUÇÃO (RESUMO)
+================================================================================
+
+1. Backend: PostgreSQL → Backend (porta 8000)
+2. Frontend: npm install → npm run dev (porta 3000)
+3. Acesse: http://localhost:3000
+
+================================================================================
+
