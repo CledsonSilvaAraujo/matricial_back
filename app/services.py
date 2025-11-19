@@ -4,7 +4,7 @@ Contém a lógica de validação de conflitos de horário.
 """
 from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_
 from app.models import Reserva
 from app.schemas import ReservaCreate, ReservaUpdate
 from fastapi import HTTPException, status
@@ -20,6 +20,11 @@ def verificar_conflito_horario(
     """
     Verifica se existe conflito de horário para uma reserva.
     
+    Um conflito ocorre quando duas reservas para a mesma sala se sobrepõem:
+    - Reserva A: [inicio_A, fim_A]
+    - Reserva B: [inicio_B, fim_B]
+    - Conflito se: inicio_A < fim_B AND fim_A > inicio_B
+    
     Args:
         db: Sessão do banco de dados
         sala_id: ID da sala a ser verificada
@@ -30,23 +35,22 @@ def verificar_conflito_horario(
     Returns:
         True se há conflito, False caso contrário
     """
+    # Validação básica: data de fim deve ser posterior à data de início
+    if data_fim <= data_inicio:
+        raise ValueError("A data de fim deve ser posterior à data de início")
+    
     # Query para encontrar reservas conflitantes
-    # Conflito ocorre quando:
-    # 1. Nova reserva começa durante uma reserva existente
-    # 2. Nova reserva termina durante uma reserva existente
-    # 3. Nova reserva engloba uma reserva existente
-    # 4. Nova reserva é englobada por uma reserva existente
+    # Conflito ocorre quando há sobreposição de intervalos:
+    # - Nova reserva: [data_inicio, data_fim]
+    # - Reserva existente: [r.data_inicio, r.data_fim]
+    # - Há conflito se: data_inicio < r.data_fim AND data_fim > r.data_inicio
     
     query = db.query(Reserva).filter(
         and_(
             Reserva.sala_id == sala_id,
-            or_(
-                # Caso 1 e 2: Sobreposição parcial
-                and_(
-                    Reserva.data_inicio < data_fim,
-                    Reserva.data_fim > data_inicio
-                )
-            )
+            # Condição de sobreposição: os intervalos se cruzam
+            Reserva.data_inicio < data_fim,
+            Reserva.data_fim > data_inicio
         )
     )
     
@@ -62,6 +66,9 @@ def criar_reserva(db: Session, reserva: ReservaCreate) -> Reserva:
     """
     Cria uma nova reserva com validação de conflitos.
     
+    GARANTE que não será possível criar uma reserva para a mesma sala
+    no mesmo horário (ou horários sobrepostos).
+    
     Args:
         db: Sessão do banco de dados
         reserva: Dados da reserva a ser criada
@@ -70,25 +77,49 @@ def criar_reserva(db: Session, reserva: ReservaCreate) -> Reserva:
         Objeto Reserva criado
     
     Raises:
-        HTTPException: Se houver conflito de horário
+        HTTPException: Se houver conflito de horário ou dados inválidos
     """
-    # Verificar conflito de horário
-    if verificar_conflito_horario(
-        db=db,
-        sala_id=reserva.sala_id,
-        data_inicio=reserva.data_inicio,
-        data_fim=reserva.data_fim
-    ):
+    # Validação: data de fim deve ser posterior à data de início
+    if reserva.data_fim <= reserva.data_inicio:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Já existe uma reserva para esta sala no horário especificado"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A data de fim deve ser posterior à data de início"
+        )
+    
+    # Verificar conflito de horário - GARANTE que não há sobreposição
+    try:
+        if verificar_conflito_horario(
+            db=db,
+            sala_id=reserva.sala_id,
+            data_inicio=reserva.data_inicio,
+            data_fim=reserva.data_fim
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Já existe uma reserva para esta sala no horário especificado. "
+                       f"Conflito detectado entre {reserva.data_inicio} e {reserva.data_fim}"
+            )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
     
     # Criar reserva
     db_reserva = Reserva(**reserva.dict())
     db.add(db_reserva)
-    db.commit()
-    db.refresh(db_reserva)
+    
+    # Commit com tratamento de erro para garantir atomicidade
+    try:
+        db.commit()
+        db.refresh(db_reserva)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao criar reserva: {str(e)}"
+        )
+    
     return db_reserva
 
 
@@ -127,16 +158,31 @@ def atualizar_reserva(
         data_fim = update_data.get('data_fim', db_reserva.data_fim)
         sala_id = update_data.get('sala_id', db_reserva.sala_id)
         
-        if verificar_conflito_horario(
-            db=db,
-            sala_id=sala_id,
-            data_inicio=data_inicio,
-            data_fim=data_fim,
-            reserva_id_excluir=reserva_id
-        ):
+        # Validação: data de fim deve ser posterior à data de início
+        if data_fim <= data_inicio:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Já existe uma reserva para esta sala no horário especificado"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A data de fim deve ser posterior à data de início"
+            )
+        
+        # Verificar conflito de horário - GARANTE que não há sobreposição
+        try:
+            if verificar_conflito_horario(
+                db=db,
+                sala_id=sala_id,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+                reserva_id_excluir=reserva_id
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Já existe uma reserva para esta sala no horário especificado. "
+                           f"Conflito detectado entre {data_inicio} e {data_fim}"
+                )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
             )
     
     # Atualizar campos
