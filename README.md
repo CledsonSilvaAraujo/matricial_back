@@ -64,23 +64,87 @@ alembic upgrade head
 
 ## 🏃 Como Executar
 
+### Opção 1: Script Automático (Recomendado) 🚀
+
+**Linux/Mac/WSL:**
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+**Windows:**
+```bash
+start.bat
+```
+
+O script automaticamente:
+- ✅ Cria/ativa ambiente virtual
+- ✅ Instala dependências
+- ✅ Cria arquivo .env se necessário
+- ✅ Inicia PostgreSQL com Docker
+- ✅ Inicia o servidor backend
+
+### Opção 2: Docker Compose (Tudo em containers) 🐳
+
+```bash
+docker-compose up -d
+```
+
+Isso iniciará:
+- PostgreSQL na porta 5432
+- Backend na porta 8000
+
+Para ver os logs:
+```bash
+docker-compose logs -f backend
+```
+
+Para parar:
+```bash
+docker-compose down
+```
+
+### Opção 3: Manual (Passo a passo)
+
 1. **Ative o ambiente virtual** (se ainda não estiver ativo):
 ```bash
 # Windows
 venv\Scripts\activate
 
-# Linux/Mac
+# Linux/Mac/WSL
 source venv/bin/activate
 ```
 
-2. **Inicie o servidor**:
+2. **Instale as dependências** (se ainda não instalou):
+```bash
+pip install -r requirements.txt
+```
+
+3. **Configure o .env** (se ainda não configurou):
+```bash
+# Copie o exemplo e ajuste
+cat > .env << 'EOF'
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/reservas_db
+SECRET_KEY=sua-chave-secreta-aqui
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+EOF
+```
+
+4. **Inicie o PostgreSQL** (se usar Docker):
+```bash
+docker-compose up -d db
+```
+
+5. **Inicie o servidor**:
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-3. **Acesse a documentação interativa**:
+### Acesse a documentação interativa:
 - Swagger UI: http://localhost:8000/api/docs
 - ReDoc: http://localhost:8000/api/redoc
+- Health Check: http://localhost:8000/api/health
 
 ## 📚 Estrutura do Projeto
 
@@ -200,12 +264,6 @@ docker-compose logs -f
 docker-compose down
 ```
 
-## 📄 Licença
 
-Este projeto foi desenvolvido como parte de um processo seletivo.
-
-## 👤 Autor
-
-Desenvolvido para o processo seletivo da Matricial Capital.
 
 # matricial_back
